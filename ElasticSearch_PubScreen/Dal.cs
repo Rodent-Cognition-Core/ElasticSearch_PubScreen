@@ -1,9 +1,8 @@
 using System;
 using System.Data;
-using System.Xml;
+
 using System.Data.SqlClient;
-using System.Collections;
-using Microsoft.Extensions.Configuration;
+
 
 namespace AngularSPAWebAPI.Services
 {
