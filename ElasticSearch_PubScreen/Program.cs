@@ -82,35 +82,43 @@ namespace ElasticSearch_PubScreen
             return (MultiMatchSearchField(pubscreen, query) && OtherFieldMatch(pubscreen, query));
         }
 
-        public QueryContainer MultiMatchSearchField(PubScreen pubscreen, QueryContainerDescriptor<PubScreenSearch> query) => string.IsNullOrEmpty(pubscreen.search) ? query : query.DisMax(dx => dx.Queries(dxqm => (ApplyMatchQuery(pubscreen, dxqm))));
+        public QueryContainer MultiMatchSearchField(PubScreen pubscreen, QueryContainerDescriptor<PubScreenSearch> query) =>
+            string.IsNullOrEmpty(pubscreen.search) ? query : query.DisMax(dx => dx.Queries(dxqm => (ApplyMatchQuery(pubscreen.search, dxqm))));
 
 
-        private QueryContainer ApplyMatchQuery(PubScreen pubscreen, QueryContainerDescriptor<PubScreenSearch> query)
-        {
-
-        }
-        private QueryContainer TitleMatch(string field, QueryContainerDescriptor<PubScreenSearch> query)
+        private QueryContainer ApplyMatchQuery(string searchingFor, QueryContainerDescriptor<PubScreenSearch> query) => +TitleMatch(searchingFor, query) || +KeyWordMatch(searchingFor, query) || +AurthorMatch(searchingFor, query);
+        private QueryContainer TitleMatch(string searchingFor, QueryContainerDescriptor<PubScreenSearch> query)
 
         {
 
-            return (MatchRelevance(field, query, p => p.Title ));
+            return (MatchRelevance(searchingFor, query, p => p.Title ));
         }
 
-        private QueryContainer KeyWordMatch(string field, QueryContainerDescriptor<PubScreenSearch> query)
+        private QueryContainer KeyWordMatch(string searchingFor, QueryContainerDescriptor<PubScreenSearch> query)
         {
-            return (MatchRelevance(field, query, p => p.Keywords));
+            return (MatchRelevance(searchingFor, query, p => p.Keywords));
         }
 
-        private QueryContainer MatchRelevance(string field, QueryContainerDescriptor<PubScreenSearch> query, Func<PubScreenSearch, IComparable> getProperty) => query
+        private QueryContainer AurthorMatch(string searchingFor, QueryContainerDescriptor<PubScreenSearch> query)
+        {
+            return (MatchRelevance(searchingFor, query, p => p.Author));
+        }
+
+        private QueryContainer MatchRelevance(string searchingFor, QueryContainerDescriptor<PubScreenSearch> query, Func<PubScreenSearch, IComparable> getProperty) => query
             .DisMax(dx => dx
                 .Queries(dxq => dxq
                     .Match(dxqm => dxqm
                         .Field(f => getProperty(f))
-                        .Query(field)
+                        .Query(searchingFor)
                         .Fuzziness(Nest.Fuzziness.Auto)
-                    )
-                )
-            );
+                    ),
+                dxq => dxq
+                        .Bool(boolq => boolq
+                        .Should(boolShould => boolShould
+                        .Wildcard(dxqm => dxqm
+                        .Field(f => getProperty(f))
+                        .Value("*" + searchingFor + "*"))))
+            ));
 
         private QueryContainer BooleanMatch(string field, QueryContainerDescriptor<PubScreenSearch> query)
         {
