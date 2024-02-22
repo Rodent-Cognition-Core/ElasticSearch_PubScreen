@@ -25,7 +25,7 @@ namespace ElasticSearch_PubScreen
     internal class ElasticSearchPubScreen
     {
         private static ElasticClient client = null;
-
+        private string[] multiSearchFields = { "title", "keywords", "author" };
 
         private ConnectionSettings settings = new ConnectionSettings(new Uri("https://localhost:9200"))
                            .CertificateFingerprint("be52412c000807283da52f26ffc9a5f7771e84ff8a2fc9bb8f757388faf2d411")
@@ -164,60 +164,69 @@ namespace ElasticSearch_PubScreen
         {
             var queryContainer = new List<QueryContainer>();
 
-            var titleQuery = TitleMatch(searchingFor, query);
-            if(titleQuery.Count > 0)
+            foreach(var field in multiSearchFields)
             {
-                foreach (var title in titleQuery)
+                var listOfSearchQuery = MatchRelevance(searchingFor, query, field);
+                foreach(var searchQuery in listOfSearchQuery)
                 {
-                    queryContainer.Add(title);
+                    queryContainer.Add(searchQuery);
                 }
-                
             }
+            //var titleQuery = TitleMatch(searchingFor, query);
+            //if(titleQuery.Count > 0)
+            //{
+            //    foreach (var title in titleQuery)
+            //    {
+            //        queryContainer.Add(title);
+            //    }
+                
+            //}
                
             
 
-            foreach( var container in KeyWordMatch(searchingFor, query))
-            {
-                queryContainer.Add(container);
-            }
+            //foreach( var container in KeyWordMatch(searchingFor, query))
+            //{
+            //    queryContainer.Add(container);
+            //}
 
-            foreach(var container in AurthorMatch(searchingFor, query))
-            {
-                queryContainer.Add(container);
-            }
+            //foreach(var container in AurthorMatch(searchingFor, query))
+            //{
+            //    queryContainer.Add(container);
+            //}
 
             //(+TitleMatch(searchingFor, query) && && );
             return queryContainer;
          }
-        private List<QueryContainer> TitleMatch(string searchingFor, QueryContainerDescriptor<PubScreenSearch> query)
-        {
+        //private List<QueryContainer> TitleMatch(string searchingFor, QueryContainerDescriptor<PubScreenSearch> query)
+        //{
 
-            return (MatchRelevance(searchingFor, query, x => x.Title ));
-        }
+        //    return (MatchRelevance(searchingFor, query, x => x.Title ));
+        //}
 
-        private List<QueryContainer> KeyWordMatch(string searchingFor, QueryContainerDescriptor<PubScreenSearch> query)
-        {
-            return (MatchRelevance(searchingFor, query, x => x.Keywords));
-        }
+        //private List<QueryContainer> KeyWordMatch(string searchingFor, QueryContainerDescriptor<PubScreenSearch> query)
+        //{
+        //    return (MatchRelevance(searchingFor, query, x => x.Keywords));
+        //}
 
-        private List<QueryContainer> AurthorMatch(string searchingFor, QueryContainerDescriptor<PubScreenSearch> query)
-        {
-            return (MatchRelevance(searchingFor, query, x => x.Author));
-        }
+        //private List<QueryContainer> AurthorMatch(string searchingFor, QueryContainerDescriptor<PubScreenSearch> query)
+        //{
+        //    return (MatchRelevance(searchingFor, query, x => x.Author));
+        //}
 
-        private List<QueryContainer> MatchRelevance(object searchingFor, QueryContainerDescriptor<PubScreenSearch> query, Func<PubScreenSearch, IComparable> getProp)
+        private List<QueryContainer> MatchRelevance(object searchingFor, QueryContainerDescriptor<PubScreenSearch> query, string fieldName)
         {
             var queryContainer = new List<QueryContainer>();
-            queryContainer.Add(MatchWithFuzziness(searchingFor, query, x => getProp(x)));
-            //queryContainer.Add(MatchWithWildCard(searchingFor, query, fieldName));
+            queryContainer.Add(MatchWithFuzziness(searchingFor, query, fieldName));
+            queryContainer.Add(MatchWithWildCard(searchingFor, query, fieldName));
             return queryContainer;    
         }
 
-        private QueryContainer MatchWithFuzziness(object searchingFor, QueryContainerDescriptor<PubScreenSearch> query, Func<PubScreenSearch, IComparable> getProp)
+        private QueryContainer MatchWithFuzziness(object searchingFor, QueryContainerDescriptor<PubScreenSearch> query, string fieldName)
         {
+            var queryField = new Nest.Field(fieldName);
             return query
                         .Match(dxqm => dxqm
-                        .Field(f => getProp(f))
+                        .Field(queryField)
                         .Query(searchingFor.ToString())
                         .Fuzziness(Nest.Fuzziness.Auto)
                     );
@@ -228,12 +237,12 @@ namespace ElasticSearch_PubScreen
         .Bool(boolq => boolq
                         .Should(boolShould => boolShould
                         .Wildcard(dxqm => dxqm
-                        .Field(f => fieldName)
+                        .Field(new Nest.Field(fieldName))
                         .Value("*" + searchingFor.ToString() + "*"))));
-        private object getPropValue(object src, string propName)
-        {
-            return src.GetType().GetProperty(propName).GetValue(src, null);
-        }
+
+
+        private QueryContainer BooleanFilter(object searchingFor, QueryContainerDescriptor<PubScreenSearch> query, string fieldName) => query.Bool(boolq => boolq
+                                   .Must(new Nest.TermQuery() { Field = new Nest.Field(fieldName), Value = searchingFor.ToString() }));
 
         private QueryContainer EaxctMatch(object searchingFor, QueryContainerDescriptor<PubScreenSearch> query,   string fieldName) => +query
             .Match(m => m
@@ -255,18 +264,18 @@ namespace ElasticSearch_PubScreen
                 {
                     continue;
                 }
+
+                
                 if (pi.PropertyType == typeof(string))
                 {
-                    //foreach(var container in MatchRelevance(value, query, pi.Name))
-                    //{
-                    //    queryContainer.Append(container);
-                    //}
-                   
+                    var mustQuery = BooleanFilter(value, query, pi.Name.ToLower());
+                    queryContainer.Add(mustQuery);
+
                 }
                 else
                 {
 
-                        queryContainer.Append(EaxctMatch(value, query, pi.Name));
+                        queryContainer.Add(EaxctMatch(value, query, pi.Name.ToLower()));
                     
                 }
                 
@@ -430,7 +439,7 @@ namespace ElasticSearch_PubScreen
                 //Console.WriteLine("Passed");
                 //Console.ReadLine();"
                 PubScreen testPubscreen = new PubScreen();
-                //testPubscreen.Author = "Mathieu-Favier";
+                testPubscreen.Author = "Mathieu-Favier";
 
                 testPubscreen.search = "mouse";
                 Stopwatch sw = new Stopwatch();
