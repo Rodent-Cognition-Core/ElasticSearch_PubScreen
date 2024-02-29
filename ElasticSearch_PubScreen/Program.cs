@@ -9,6 +9,7 @@ using Elastic.Transport;
 using Elasticsearch.Net;
 using Nest;
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
@@ -22,6 +23,8 @@ using Fuzziness = Elastic.Clients.Elasticsearch.Fuzziness;
 
 namespace ElasticSearch_PubScreen
 {
+
+
     internal class ElasticSearchPubScreen
     {
         private static ElasticClient client = null;
@@ -62,26 +65,53 @@ namespace ElasticSearch_PubScreen
                 Filter = new List<string> { "standard", "lowercase", "asciifolding", "word_delimiter" },
                 Tokenizer = "lowercase"
             };
-
-            client.Indices.Create("pubscreen", c => c
+            try
+            {
+                client.Indices.Delete(new DeleteIndexRequest(Nest.Indices.Index("pubscreen")));
+            }catch(Exception ex)
+            {
+                Console.WriteLine(ex.Message);
+            }
+            client.Indices.Create("pubscreen", pub => pub
                 .Settings(s => s
                     .Analysis(descriptor => descriptor
-                        .TokenFilters(bases => bases
-                        .NGram("name_ngrams", td => td
-                        .MinGram(2)
-                        .MaxGram(10))
-                        .Lowercase("partial_name")
+  
+                        .Analyzers(analyzer => analyzer
+                            .Custom("author_analyzer", ca => ca
+                                .Tokenizer("standard")
+                                .Filters("lowercase", "stop", "stemmer")
+                                )
+                            )
+                       
+                       .TokenFilters(bases => bases
+                            .EdgeNGram("author_analyzer", td => td
+                            .MinGram(2)
+                            .MaxGram(25))
                         )
-                     )
-                  )
-               );
+                    )
+                    .Setting(UpdatableIndexSettings.MaxNGramDiff, 23)
+                    
+                    )
+                .Map<PubScreen>(m => m 
+                    .AutoMap()
+                    .Properties(p => p
+                        .Text(t => t
+                            
+                            .Name(f => f.Author)
+                            .Analyzer("author_analyzer"))
+                        )
+                    )
+                );
         }
         public ElasticClient GetElasticsearchClient()
         {
             return client;
         }
 
-        public QueryContainer tempQuery(PubScreen pubscreen, QueryContainerDescriptor<PubScreenSearch> query) => query.DisMax(dx => dx
+        public QueryContainer tempQuery(PubScreen pubscreen, QueryContainerDescriptor<PubScreenSearch> query) =>
+            query.Bool(boolQuery => boolQuery.Should(
+                boolShould => boolShould
+                .DisMax(dx => dx
                     .Queries(dxq => dxq
                                 .Match(dxqm => dxqm
                                 .Field(f => f.Title)
@@ -94,41 +124,40 @@ namespace ElasticSearch_PubScreen
                                 .Fuzziness(Nest.Fuzziness.Auto)),
                             dxq => dxq
                                 .Bool(boolq => boolq
-                                .Should(boolShould => boolShould
+                                .Should(boolqShould => boolqShould
                                 .Wildcard(dxqm => dxqm
                                 .Field(f => f.Keywords)
                                 .Value("*" + pubscreen.search + "*")))),
                             dxq => dxq
                                 .Bool(boolq => boolq
-                                .Should(boolShould => boolShould
+                                .Should(boolqShould => boolqShould
                                 .Wildcard(dxqm => dxqm
                                 .Field(f => f.Title)
                                 .Value("*" + pubscreen.search + "*")))),
-
                             dxq => dxq
                                 .Match(dxqm => dxqm
                                 .Field(f => f.Author)
-                                .Query(pubscreen.Author))));
+                                .Query(pubscreen.Author)))))
+            
+            .Filter(fil => fil
+                        .Bool(wild => wild
+                                       .Should(filterShould => filterShould
+                                       .)
+                                       .Value("*" + pubscreen.Author + "*"))));
         public QueryContainer ApplyQuery(PubScreen pubscreen, QueryContainerDescriptor<PubScreenSearch> query)
         {
-            var searchQuery = query.DisMax(dxq => dxq.Queries(JoinAllQuries(pubscreen, query).ToArray()));
-            var stringQuery = client.RequestResponseSerializer.SerializeToString(searchQuery);
-            Console.WriteLine("this is dynamically generated query: ", stringQuery);
-
-            //var searchResult = client.Search<PubScreenSearch>(s => s.Index("pubscreen")
-            //    .Size(10000)
-
-            //.Query(q => tempQuery(pubscreen, q)));
 
             QueryContainerDescriptor<PubScreenSearch> test_temp = new QueryContainerDescriptor<PubScreenSearch>();
             var temp = tempQuery(pubscreen, test_temp);
 
             var stringTempQuery = client.RequestResponseSerializer.SerializeToString(temp);
-            Console.WriteLine("this is hardCoded query ", stringTempQuery)
+            Console.WriteLine("this is hardCoded query ", stringTempQuery);
 
-            /*stringQuery = client.RequestResponseSerializer.SerializeToString()*/;
-            //Console.WriteLine("this is dynamically generated query: ", query);
-            return searchQuery;
+            //return query.Bool(boolQ => boolQ.Should(boolQM => boolQM
+            //                                .DisMax(dxq => dxq.Queries(JoinAllQuries(pubscreen, query).ToArray())))
+ 
+            //                                .Filter(AddFilter(pubscreen).ToArray()));
+            return temp;
         }
 
         private List<QueryContainer> JoinAllQuries(PubScreen pubscreen, QueryContainerDescriptor<PubScreenSearch> query)
@@ -142,32 +171,71 @@ namespace ElasticSearch_PubScreen
                 {
                     container.Add(multiQuery);
                 }
-                
+
             }
 
-            var otherFieldQuery = OtherFieldMatch(pubscreen, query);
+            //var otherFieldQuery = OtherFieldMatch(pubscreen, query);
 
-            if(otherFieldQuery.Count > 0)
-            {
-                foreach(var otherField in otherFieldQuery)
-                {
-                    container.Add(otherField);
-                }
-            }
+            //if (otherFieldQuery.Count > 0)
+            //{
+            //    foreach (var otherField in otherFieldQuery)
+            //    {
+            //        container.Add(otherField);
+            //    }
+            //}
             return container;
+        }
+
+        private List<Func<QueryContainerDescriptor<PubScreenSearch>, QueryContainer>> AddFilter(PubScreen pubscreen)
+        {
+
+            var filterQuery = new List<Func<QueryContainerDescriptor<PubScreenSearch>, QueryContainer>>();
+
+            foreach (PropertyInfo pi in pubscreen.GetType().GetProperties())
+            {
+                if (pi.Name == "search")
+                {
+                    continue;
+                }
+                string value = Convert.ToString(pi.GetValue(pubscreen, null));
+                if (string.IsNullOrEmpty(value))
+                {
+                    continue;
+                }
+
+
+                if (pi.PropertyType == typeof(string))
+                {
+
+                    //var mustQuery = BooleanFilter(value, query, pi.Name.ToLower());
+                    //queryContainer.Add(mustQuery);
+                    filterQuery.Add(fq => fq.Wildcard(dxqm => dxqm
+                            .Field(new Nest.Field(pi.Name))
+                            .Value("*" + value.ToString() + "*")));
+                }
+                else
+                {
+
+                    filterQuery.Add(fq => fq.Terms(t => t.Field(new Nest.Field(pi.Name)).Terms(value)));
+
+                }
+
+            }
+
+            return filterQuery;
         }
         public List<QueryContainer> MultiMatchSearchField(PubScreen pubscreen, QueryContainerDescriptor<PubScreenSearch> query) =>
             string.IsNullOrEmpty(pubscreen.search) ? new List<QueryContainer>() : ApplyMatchQuery(pubscreen.search, query);
 
 
-        private List<QueryContainer> ApplyMatchQuery(string searchingFor, QueryContainerDescriptor<PubScreenSearch> query) 
+        private List<QueryContainer> ApplyMatchQuery(string searchingFor, QueryContainerDescriptor<PubScreenSearch> query)
         {
             var queryContainer = new List<QueryContainer>();
 
-            foreach(var field in multiSearchFields)
+            foreach (var field in multiSearchFields)
             {
                 var listOfSearchQuery = MatchRelevance(searchingFor, query, field);
-                foreach(var searchQuery in listOfSearchQuery)
+                foreach (var searchQuery in listOfSearchQuery)
                 {
                     queryContainer.Add(searchQuery);
                 }
@@ -179,10 +247,10 @@ namespace ElasticSearch_PubScreen
             //    {
             //        queryContainer.Add(title);
             //    }
-                
+
             //}
-               
-            
+
+
 
             //foreach( var container in KeyWordMatch(searchingFor, query))
             //{
@@ -196,7 +264,7 @@ namespace ElasticSearch_PubScreen
 
             //(+TitleMatch(searchingFor, query) && && );
             return queryContainer;
-         }
+        }
         //private List<QueryContainer> TitleMatch(string searchingFor, QueryContainerDescriptor<PubScreenSearch> query)
         //{
 
@@ -218,7 +286,7 @@ namespace ElasticSearch_PubScreen
             var queryContainer = new List<QueryContainer>();
             queryContainer.Add(MatchWithFuzziness(searchingFor, query, fieldName));
             queryContainer.Add(MatchWithWildCard(searchingFor, query, fieldName));
-            return queryContainer;    
+            return queryContainer;
         }
 
         private QueryContainer MatchWithFuzziness(object searchingFor, QueryContainerDescriptor<PubScreenSearch> query, string fieldName)
@@ -231,7 +299,7 @@ namespace ElasticSearch_PubScreen
                         .Fuzziness(Nest.Fuzziness.Auto)
                     );
         }
-            
+
 
         private QueryContainer MatchWithWildCard(object searchingFor, QueryContainerDescriptor<PubScreenSearch> query, string fieldName) => query
         .Bool(boolq => boolq
@@ -241,9 +309,11 @@ namespace ElasticSearch_PubScreen
                         .Value("*" + searchingFor.ToString() + "*"))));
 
 
-        private QueryContainer BooleanFilter(object searchingFor, QueryContainerDescriptor<PubScreenSearch> query, string fieldName) => query.Bool(boolq => boolq
-                                   .Must(new Nest.TermQuery() { Field = new Nest.Field(fieldName), Value = searchingFor.ToString() }));
-
+        private QueryContainer BooleanFilter(object searchingFor, QueryContainerDescriptor<PubScreenSearch> query, string fieldName) => +query
+                            .Wildcard(dxqm => dxqm
+                            .Field(new Nest.Field(fieldName))
+                            .Strict(true)
+                            .Value("*"  + searchingFor.ToString() + "*"));
         private QueryContainer EaxctMatch(object searchingFor, QueryContainerDescriptor<PubScreenSearch> query,   string fieldName) => +query
             .Match(m => m
             .Field(fieldName)
@@ -253,33 +323,33 @@ namespace ElasticSearch_PubScreen
         private List<QueryContainer> OtherFieldMatch(PubScreen pubscreen, QueryContainerDescriptor<PubScreenSearch> query)
         {
             var queryContainer = new List<QueryContainer>();
-            foreach (PropertyInfo pi in pubscreen.GetType().GetProperties())
-            {
-                if(pi.Name == "search")
-                {
-                    continue;
-                }
-                string value = Convert.ToString(pi.GetValue(pubscreen, null));
-                if (string.IsNullOrEmpty(value))
-                {
-                    continue;
-                }
+            //foreach (PropertyInfo pi in pubscreen.GetType().GetProperties())
+            //{
+            //    if(pi.Name == "search")
+            //    {
+            //        continue;
+            //    }
+            //    string value = Convert.ToString(pi.GetValue(pubscreen, null));
+            //    if (string.IsNullOrEmpty(value))
+            //    {
+            //        continue;
+            //    }
 
                 
-                if (pi.PropertyType == typeof(string))
-                {
-                    var mustQuery = BooleanFilter(value, query, pi.Name.ToLower());
-                    queryContainer.Add(mustQuery);
+            //    if (pi.PropertyType == typeof(string))
+            //    {
+            //        var mustQuery = BooleanFilter(value, query, pi.Name.ToLower());
+            //        queryContainer.Add(mustQuery);
 
-                }
-                else
-                {
+            //    }
+            //    else
+            //    {
 
-                        queryContainer.Add(EaxctMatch(value, query, pi.Name.ToLower()));
+            //            queryContainer.Add(EaxctMatch(value, query, pi.Name.ToLower()));
                     
-                }
+            //    }
                 
-            }
+            //}
             return queryContainer;
         }
 
@@ -291,21 +361,17 @@ namespace ElasticSearch_PubScreen
             //QueryContainerDescriptor<PubScreen> pq = new QueryContainerDescriptor<PubScreen>();
             try
             {
-
-                //if(pubScreen.search != null)
-                //{
-                //    query &= new MatchQuery()
-                //    {
-                //        Field = Field<PubScreenSearch>(p => p.Title),
-                //        Query = pubScreen.search
-                //    };
-                //}
+                var tesQuery = new QueryContainerDescriptor<PubScreenSearch>();
+                var beforeFilter = ApplyQuery(pubScreen, tesQuery);
+                var stringQuery = client.RequestResponseSerializer.SerializeToString(beforeFilter);
+                
+                
                 var searchResult = client.Search<PubScreenSearch>(s => s.Index("pubscreen")
                     .Size(10000)
                     .Query(q => ApplyQuery(pubScreen, q)
                         )
                     );
-                
+
                 results = searchResult.Hits.Select(hit => hit.Source).ToList();
 
             }
@@ -374,10 +440,9 @@ namespace ElasticSearch_PubScreen
 
 
             ElasticSearchPubScreen elasticPubscreen = new ElasticSearchPubScreen();
-            elasticPubscreen.createIndices();
+            //elasticPubscreen.createIndices();
             var client = elasticPubscreen.GetElasticsearchClient();
 
-          
 
 
 
@@ -398,56 +463,18 @@ namespace ElasticSearch_PubScreen
 
             try
             {
-                //var searchResult = client.Search<PubScreenSearch>(s => s.Index("pubscreen")
-                //    .Size(10000)
 
-                //.Query(q => q
-                //    .DisMax(dx => dx
-                //        .Queries(dxq => dxq
-                //                    .Match(dxqm => dxqm
-                //                    .Field(f => f.Title)
-                //                    .Query(pubScreen.search)
-                //                    .Fuzziness(new Fuzziness("Auto"))),
-                //                dxq => dxq
-                //                    .Match(dxqm => dxqm
-                //                    .Field(f => f.Author)
-                //                    .Query(pubScreen.search)
-                //                    .Fuzziness(new Fuzziness("Auto"))),
-                //                dxq => dxq
-                //                    .Bool(boolq => boolq
-                //                    .Should(boolShould => boolShould
-                //                    .Wildcard(dxqm => dxqm
-                //                    .Field(f => f.Keywords)
-                //                    .Value("*" + pubScreen.search + "*")))),
-                //                dxq => dxq
-                //                    .Bool(boolq => boolq
-                //                    .Should(boolShould => boolShould
-                //                    .Wildcard(dxqm => dxqm
-                //                    .Field(f => f.Title)
-                //                    .Value("*" + pubScreen.search + "*")))),
-
-                //                dxq => dxq
-                //                    .Match(dxqm => dxqm
-                //                    .Field(f => f.Author)
-                //                    .Query(pubScreen.Author)
-                //                    .Fuzziness(new Fuzziness("Auto")))
-                ////.Match(m => m.Field(f => f.Title).Query("mouse")))
-
-                //))));
-                //var results = new List<PubScreenSearch>();
-                //results = searchResult.Hits.Select(hit => hit.Source).ToList();
-                //Console.WriteLine("Passed");
-                //Console.ReadLine();"
+                //var test_analyzer = client.Indices.Analyze(a => a.Analyzer("whitespace").Text("Mathieu-Favier, Helena-Janickova, Damian-Justo, Ornela-Kljakic, Léonie-Runtz, Joman Y-Natsheh, Tharick A-Pascoal, Jurgen-Germann, Daniel-Gallino, Jun-Ii-Kang, Xiang Qi-Meng, Christina-Antinora, Sanda-Raulic, Jacob Pr-Jacobsen, Luc-Moquin, Erika-Vigneault, Alain-Gratton, Marc G-Caron, Philibert-Duriez, Mark P-Brandon, Pedro Rosa-Neto, M Mallar-Chakravarty, Mohammad M-Herzallah, Philip-Gorwood, Marco Am-Prado, Vania F-Prado, Salah-El Mestikawy"));
+                // Console.WriteLine(test_analyzer.ToString());
                 PubScreen testPubscreen = new PubScreen();
                 testPubscreen.Author = "Mathieu-Favier";
-
                 testPubscreen.search = "mouse";
+
+
                 Stopwatch sw = new Stopwatch();
                 sw.Start();
                 elasticPubscreen.Search(testPubscreen);
                 sw.Stop();
-
-                Console.WriteLine("elastSearch result time \tMilliseconds = {0},\tTicks = {1}", sw.ElapsedMilliseconds, sw.ElapsedTicks);
             }
             catch (Exception ex)
             {
