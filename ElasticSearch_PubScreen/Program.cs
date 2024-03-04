@@ -169,9 +169,40 @@ namespace ElasticSearch_PubScreen
                     continue;
                 }
 
-                if(pi.Name == "Year From")
+                if(pi.Name == "YearFrom")
                 {
+                    double yearFrom = 0;
+                    
+                    if(double.TryParse(value, out yearFrom))
+                    {
+                        filterQuery.Add(fq => fq
+                        .Range(range => range
+                            .Field(new Nest.Field("year"))
+                        .GreaterThanOrEquals(yearFrom))
+                        );
+                    }
+                    else
+                    {
+                        Console.WriteLine("Unable to parse Year From '{0}'", value);
+                    }
 
+                }
+
+                else if(pi.Name == "YearTo")
+                {
+                    double yearTo = 0;
+                    if(double.TryParse (value, out yearTo))
+                    {
+                        filterQuery.Add(fq => fq
+                        .Range(range => range
+                            .Field(new Nest.Field("year"))
+                            .LessThanOrEquals(yearTo))
+                        );
+                    }
+                    else
+                    {
+                        Console.WriteLine("Unable to parse Year To '{0}", value);
+                    }
                 }
                 else if (pi.PropertyType == typeof(string))
                 {
@@ -281,15 +312,37 @@ namespace ElasticSearch_PubScreen
                 cn.Open();
                 using (SqlDataReader reader = command.ExecuteReader())
                 {
+
                     while (reader.Read())
                     {
                         var newPub = new PubScreenSearch();
-                        newPub.ID = Int32.Parse(reader["ID"].ToString());
+                        
+                        int ID = 0;
+                        if (Int32.TryParse(reader["ID"].ToString(), out ID)) 
+                        {
+                            newPub.ID = ID; 
+                        }
+                        else
+                        {
+                            Console.WriteLine("Unable to parse ID to index");
+                            continue;
+                        }
+
                         newPub.Title = Convert.ToString(reader["Title"].ToString());
                         newPub.Abstract = Convert.ToString(reader["Abstract"].ToString());
                         newPub.Keywords = Convert.ToString(reader["Keywords"].ToString());
                         newPub.DOI = Convert.ToString(reader["DOI"].ToString());
-                        newPub.Year = Convert.ToString(reader["Year"].ToString());
+
+                        int year = 0;
+                        if (Int32.TryParse(reader["Year"].ToString(), out year))
+                        {
+                            newPub.Year = year;
+                        }
+                        else
+                        {
+                            Console.WriteLine("Unable to parse Year to index");
+                            continue;
+                        }
                         newPub.Author = Convert.ToString(reader["Author"].ToString());
                         newPub.PaperType = Convert.ToString(reader["PaperType"].ToString());
                         newPub.Task = Convert.ToString(reader["Task"].ToString());
@@ -322,7 +375,7 @@ namespace ElasticSearch_PubScreen
 
 
             ElasticSearchPubScreen elasticPubscreen = new ElasticSearchPubScreen();
-            elasticPubscreen.createIndices();
+            //elasticPubscreen.createIndices();
             var client = elasticPubscreen.GetElasticsearchClient();
 
 
@@ -350,10 +403,12 @@ namespace ElasticSearch_PubScreen
                 // Console.WriteLine(test_analyzer.ToString());
                 PubScreen testPubscreen = new PubScreen();
                 //testPubscreen.Author = "Mathieu-Favier";
-                testPubscreen.Title = "Subchronic";
+                //testPubscreen.Title = "Subchronic";
                 testPubscreen.search = "mouse";
+                testPubscreen.YearFrom = 2021;
+                testPubscreen.YearTo = 2023;
 
-
+       
                 Stopwatch sw = new Stopwatch();
                 sw.Start();
                 elasticPubscreen.Search(testPubscreen);
