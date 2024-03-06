@@ -26,7 +26,7 @@ namespace ElasticSearch_PubScreen
     internal class ElasticSearchPubScreen
     {
         private static ElasticClient client = null;
-        private string[] multiSearchFields = { "title", "keywords", "author" };
+        private string[] MULTISEARCHFIELDS = { "title", "keywords", "author" };
 
         private ConnectionSettings settings = new ConnectionSettings(new Uri("https://localhost:9200"))
                            .CertificateFingerprint("be52412c000807283da52f26ffc9a5f7771e84ff8a2fc9bb8f757388faf2d411")
@@ -91,42 +91,6 @@ namespace ElasticSearch_PubScreen
             return client;
         }
 
-        public QueryContainer tempQuery(PubScreen pubscreen, QueryContainerDescriptor<PubScreenSearch> query) =>
-            query.Bool(boolQuery => boolQuery.Should(
-                boolShould => boolShould
-                .DisMax(dx => dx
-                    .Queries(dxq => dxq
-                                .Match(dxqm => dxqm
-                                .Field(f => f.Title)
-                                .Query(pubscreen.search)
-                                .Fuzziness(Nest.Fuzziness.Auto)),
-                            dxq => dxq
-                                .Match(dxqm => dxqm
-                                .Field(f => f.Author)
-                                .Query(pubscreen.search)
-                                .Fuzziness(Nest.Fuzziness.Auto)),
-                            dxq => dxq
-                                .Bool(boolq => boolq
-                                .Should(boolqShould => boolqShould
-                                .Wildcard(dxqm => dxqm
-                                .Field(f => f.Keywords)
-                                .Value("*" + pubscreen.search + "*")))),
-                            dxq => dxq
-                                .Bool(boolq => boolq
-                                .Should(boolqShould => boolqShould
-                                .Wildcard(dxqm => dxqm
-                                .Field(f => f.Title)
-                                .Value("*" + pubscreen.search + "*")))),
-                            dxq => dxq
-                                .Match(dxqm => dxqm
-                                .Field(f => f.Author)
-                                .Query(pubscreen.Author)))))
-                    .Filter(fil => fil
-                        .Bool(wild => wild
-                        .Must(boolShould => boolShould
-                            .QueryString(queryString => queryString
-                                        .DefaultField(f => f.Title)
-                                          .Query(pubscreen.Title.ToLower()))))));
         public QueryContainer ApplyQuery(PubScreen pubscreen, QueryContainerDescriptor<PubScreenSearch> query)
         {
 
@@ -228,7 +192,7 @@ namespace ElasticSearch_PubScreen
         {
             var queryContainer = new List<QueryContainer>();
 
-            foreach (var field in multiSearchFields)
+            foreach (var field in MULTISEARCHFIELDS)
             {
                 var listOfSearchQuery = MatchRelevance(searchingFor, query, field);
                 foreach (var searchQuery in listOfSearchQuery)
@@ -265,13 +229,6 @@ namespace ElasticSearch_PubScreen
                         .Wildcard(dxqm => dxqm
                         .Field(new Nest.Field(fieldName))
                         .Value("*" + searchingFor.ToString() + "*"))));
-
-
-        private QueryContainer BooleanFilter(object searchingFor, QueryContainerDescriptor<PubScreenSearch> query, string fieldName) => +query
-                            .Wildcard(dxqm => dxqm
-                            .Field(new Nest.Field(fieldName))
-                            .Strict(true)
-                            .Value("*"  + searchingFor.ToString() + "*"));
 
         public List<PubScreenSearch> Search(PubScreen pubScreen)
         {
@@ -368,13 +325,14 @@ namespace ElasticSearch_PubScreen
 
 
 
-
+        private  
 
         static void Main(string[] args)
         {
 
 
             ElasticSearchPubScreen elasticPubscreen = new ElasticSearchPubScreen();
+            //elasticPubscreen
             //elasticPubscreen.createIndices();
             var client = elasticPubscreen.GetElasticsearchClient();
 
@@ -404,7 +362,7 @@ namespace ElasticSearch_PubScreen
                 PubScreen testPubscreen = new PubScreen();
                 //testPubscreen.Author = "Mathieu-Favier";
                 //testPubscreen.Title = "Subchronic";
-                testPubscreen.search = "mouse";
+                //testPubscreen.search = "mouse";
                 testPubscreen.YearFrom = 2021;
                 testPubscreen.YearTo = 2023;
 

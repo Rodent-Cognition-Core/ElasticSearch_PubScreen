@@ -1,19 +1,21 @@
-﻿using System;
+﻿using Nest;
+using System;
 using System.Collections.Generic;
 using System.Text;
 
 namespace ElasticSearch_PubScreen
-{ 
+{
+    [ElasticsearchType]
         public class PubScreenSearch
         {
 
             public int ID { get; set; }
-            public Guid PaperLinkGuid { get; set; }
+            //public Guid PaperLinkGuid { get; set; }
             public string Title { get; set; }
             public string Abstract { get; set; }
             public string Keywords { get; set; }
             public string DOI { get; set; }
-            public string Year { get; set; }
+            public int Year { get; set; }
             public string Author { get; set; }
             public string PaperType { get; set; }
             public string Task { get; set; }

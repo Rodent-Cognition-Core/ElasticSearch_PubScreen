@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
+using ElasticSearch_PubScreen.Model;
 
 namespace ElasticSearch_PubScreen
 {

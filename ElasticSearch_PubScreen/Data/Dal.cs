@@ -4,7 +4,7 @@ using System.Data;
 using System.Data.SqlClient;
 
 
-namespace AngularSPAWebAPI.Services
+namespace ElasticSearch_PubScreen.Data
 {
     public class Dal
     {
@@ -22,7 +22,7 @@ namespace AngularSPAWebAPI.Services
 
         public static int ExecuteNonQuery(string cmdTxt)
         {
-            return ExecuteNonQuery(CommandType.Text, cmdTxt, (SqlParameter[])null);
+            return ExecuteNonQuery(CommandType.Text, cmdTxt, null);
         }
 
         public static int ExecuteNonQuery(CommandType cmdType, string cmdTxt, params SqlParameter[] cmdParams)
@@ -76,7 +76,7 @@ namespace AngularSPAWebAPI.Services
 
         public static int ExecuteNonQueryPub(string cmdTxt)
         {
-            return ExecuteNonQueryPub(CommandType.Text, cmdTxt, (SqlParameter[])null);
+            return ExecuteNonQueryPub(CommandType.Text, cmdTxt, null);
         }
 
         public static int ExecuteNonQueryPub(CommandType cmdType, string cmdTxt, params SqlParameter[] cmdParams)
@@ -110,7 +110,7 @@ namespace AngularSPAWebAPI.Services
 
         public static int ExecuteNonQueryCog(string cmdTxt)
         {
-            return ExecuteNonQueryCog(CommandType.Text, cmdTxt, (SqlParameter[])null);
+            return ExecuteNonQueryCog(CommandType.Text, cmdTxt, null);
         }
 
         public static int ExecuteNonQueryCog(CommandType cmdType, string cmdTxt, params SqlParameter[] cmdParams)
@@ -150,7 +150,7 @@ namespace AngularSPAWebAPI.Services
                 //LogHelper.Log(cmdTxt);
             }
 
-            return ExecDS(cmdType, cmdTxt, (SqlParameter[])null);
+            return ExecDS(cmdType, cmdTxt, null);
         }
 
         //PubScrren
@@ -162,7 +162,7 @@ namespace AngularSPAWebAPI.Services
                 //LogHelper.Log(cmdTxt);
             }
 
-            return ExecDSPub(cmdType, cmdTxt, (SqlParameter[])null);
+            return ExecDSPub(cmdType, cmdTxt, null);
         }
 
         // pubscreen
@@ -184,7 +184,7 @@ namespace AngularSPAWebAPI.Services
                 //LogHelper.Log(cmdTxt);
             }
 
-            return ExecDSCog(cmdType, cmdTxt, (SqlParameter[])null);
+            return ExecDSCog(cmdType, cmdTxt, null);
         }
 
         public static DataSet ExecDSCog(CommandType cmdType, string cmdTxt, params SqlParameter[] cmdParams)
@@ -209,7 +209,7 @@ namespace AngularSPAWebAPI.Services
 
         public static DataSet ExecDS(SqlConnection connection, CommandType cmdType, string cmdTxt)
         {
-            return ExecDS(connection, cmdType, cmdTxt, (SqlParameter[])null);
+            return ExecDS(connection, cmdType, cmdTxt, null);
         }
 
         public static DataSet ExecDS(SqlConnection connection, CommandType cmdType, string cmdTxt, params SqlParameter[] cmdParams)
@@ -262,7 +262,7 @@ namespace AngularSPAWebAPI.Services
 
         public static SqlDataReader GetReader(CommandType cmdType, string cmdTxt)
         {
-            return GetReader(cmdType, cmdTxt, (SqlParameter[])null);
+            return GetReader(cmdType, cmdTxt, null);
         }
 
         // pubscreen
@@ -386,7 +386,7 @@ namespace AngularSPAWebAPI.Services
         {
             DataSet ds = null;
             ds = ExecDS(cmdType, cmdTxt, logEnabled);
-            if ((ds != null))
+            if (ds != null)
                 if (ds.Tables.Count > 0)
                     return ds.Tables[0];
 
@@ -402,7 +402,7 @@ namespace AngularSPAWebAPI.Services
         {
             DataSet ds = null;
             ds = ExecDSPub(cmdType, cmdTxt, logEnabled);
-            if ((ds != null))
+            if (ds != null)
                 if (ds.Tables.Count > 0)
                     return ds.Tables[0];
 
@@ -417,7 +417,7 @@ namespace AngularSPAWebAPI.Services
         {
             DataSet ds = null;
             ds = ExecDSCog(cmdType, cmdTxt, logEnabled);
-            if ((ds != null))
+            if (ds != null)
                 if (ds.Tables.Count > 0)
                     return ds.Tables[0];
 
@@ -439,7 +439,7 @@ namespace AngularSPAWebAPI.Services
 
                 foreach (SqlParameter param in cmdParams)
                 {
-                    if ((param.Direction == ParameterDirection.InputOutput) && (param.Value == null))
+                    if (param.Direction == ParameterDirection.InputOutput && param.Value == null)
                     {
                         param.Value = DBNull.Value;
                     }
