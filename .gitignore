@@ -1,0 +1,5 @@
+#ignore all files in the following directory:
+bin/
+.vs/
+obj/
+
