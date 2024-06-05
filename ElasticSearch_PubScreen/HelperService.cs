@@ -1,8 +1,5 @@
 using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Net.Mail;
-using System.Threading.Tasks;
 
 namespace CBAS.Helpers
 {
@@ -19,7 +16,7 @@ namespace CBAS.Helpers
         {
 
             return Value == null ? "" : Value.ToString();
-            
+
         }
 
         public static DateTime? ConvertToNullableDateTime(string s)
@@ -56,11 +53,11 @@ namespace CBAS.Helpers
                     fromEmailAddress = "mousebytes@uwo.ca";
                 }
 
-                if(toEmailAddress == "")
+                if (toEmailAddress == "")
                 {
                     toEmailAddress = "mousebytes@uwo.ca";
                 }
-                
+
                 mail.From = new MailAddress(fromEmailAddress);
                 mail.To.Add(toEmailAddress);
                 mail.Subject = subject;

@@ -1,9 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Text;
-using ElasticSearch_PubScreen.Model;
 
-namespace ElasticSearch_PubScreen
+namespace ElasticSearch_PubScreen.Model
 {
     public class Experiment
     {
@@ -29,6 +27,6 @@ namespace ElasticSearch_PubScreen
         //public bool IsPostProcessingPass { get; set; }
         public bool MultipleSessions { get; set; }
         public string RepoGuid { get; set; }
-        public System.Collections.Generic.List<SubExperiment> SubExpList { get; set; }
+        //public List<SubExperiment> SubExpList { get; set; }
     }
 }

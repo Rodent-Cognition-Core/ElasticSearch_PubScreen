@@ -1,9 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Text;
-using ElasticSearch_PubScreen.Model;
 
-namespace ElasticSearch_PubScreen
+namespace ElasticSearch_PubScreen.Model
 {
     public class Cogbytes
     {
@@ -22,8 +20,8 @@ namespace ElasticSearch_PubScreen
         public string Description { get; set; }
         public string AdditionalNotes { get; set; }
         public string DateRepositoryCreated { get; set; }
-        public System.Collections.Generic.List<Experiment> Experiment { get; set; }
-        public PubScreenSearch Paper { get; set; }
+        //public List<Experiment> Experiment { get; set; }
+        //public PubScreenSearch Paper { get; set; }
         public string DataCiteURL { get; set; }
     }
 }

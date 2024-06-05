@@ -1,5 +1,4 @@
-
-namespace AngularSPAWebAPI.Models
+namespace ElasticSearch_PubScreen.Model
 {
     public class PubScreenAuthor
     {
@@ -8,6 +7,6 @@ namespace AngularSPAWebAPI.Models
         public string LastName { get; set; }
         public string Affiliation { get; set; }
         public string username { get; set; }
-        
+
     }
 }

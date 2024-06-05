@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
-
-namespace ElasticSearch_PubScreen.Model
+﻿namespace ElasticSearch_PubScreen.Model
 {
     public class SubExperiment
     {

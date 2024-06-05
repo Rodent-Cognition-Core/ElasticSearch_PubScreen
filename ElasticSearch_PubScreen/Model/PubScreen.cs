@@ -1,7 +1,4 @@
-
-using System;
-
-namespace AngularSPAWebAPI.Models
+namespace ElasticSearch_PubScreen.Model
 {
     public class PubScreen
     {
@@ -45,10 +42,5 @@ namespace AngularSPAWebAPI.Models
         public string MethodOther { get; set; }
         public string NeurotransOther { get; set; }
         public string search { get; set; }
-
-
-        //public System.Collections.Generic.List<PubScreenAuthor> Author { get; set; }
-
-
     }
 }
